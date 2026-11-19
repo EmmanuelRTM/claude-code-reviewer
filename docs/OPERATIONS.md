@@ -140,8 +140,8 @@ The remaining commands (`review prepare`, `review publish`, `risk evaluate`, `is
 
 ## Upgrade and uninstall
 
-- **Upgrade:** pull this repository and run the installer again. It updates kit files you did not edit, removes files a newer kit no longer ships, and reports what it skipped.
-- **Uninstall:** `python3 install.py --target ../my-repo --uninstall` removes what the installer added. Files you own (`REVIEW.md`, the checklist, the `verify` skill, your configuration) stay.
+- **Upgrade:** pull this repository and run the installer again. It updates kit files you did not edit, removes files a newer kit no longer ships, and reports what it skipped. A kit hook you adjusted in `.claude/settings.json`, for example with a longer timeout, is kept as you left it.
+- **Uninstall:** `python3 install.py --target ../my-repo --uninstall` removes what the installer added, including the kit's hooks from `.claude/settings.json`. Files you own (`REVIEW.md`, the checklist, the `verify` skill, your configuration) stay.
 
 ## Troubleshooting
 

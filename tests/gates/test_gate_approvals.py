@@ -364,4 +364,6 @@ def test_the_author_can_be_barred_from_approving_their_own_pull_request() -> Non
     assert allowed.approvers == ("alice", "dev")
     assert barred.approvers == ("alice",)
     # Another person's approval is unaffected, and so is the comparison of logins by case.
-    assert evaluate(comments=[comment("Dev", f"/approve {HEAD}")], author="dev", author_can_approve=False).approvers == ()
+    assert (
+        evaluate(comments=[comment("Dev", f"/approve {HEAD}")], author="dev", author_can_approve=False).approvers == ()
+    )

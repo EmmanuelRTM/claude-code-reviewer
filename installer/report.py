@@ -71,9 +71,10 @@ def next_steps() -> list[str]:
         "never commit it.",
         "Install the Claude GitHub App (https://github.com/apps/claude) if you want @claude to work on "
         "issues and pull requests.",
-        "Protect the default branch (require pull requests, dismiss stale approvals, require conversation "
-        "resolution) and check the `owners` setting.",
-        "Run `python3 -I .claude/reviewkit/rk.py doctor` in the target repository.",
+        "Protect the default branch: require a pull request, review from code owners and the "
+        "`risk-approval` status check. Check the `owners` setting.",
+        "Run `python3 -I .claude/reviewkit/rk.py doctor --github` in the target repository to confirm the "
+        "installation, the secret and the branch protection.",
     ]
 
 

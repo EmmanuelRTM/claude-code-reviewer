@@ -110,10 +110,29 @@ def test_a_complete_file_is_left_alone_whatever_its_formatting() -> None:
     assert merge_hooks(oddly_formatted, HOOKS).changed is False
 
 
-def test_a_similar_but_different_group_is_not_a_duplicate() -> None:
-    similar = dict(GATE, matcher="Bash|Edit")
-    merged = json.loads(merge_hooks(json.dumps({"hooks": {"PreToolUse": [similar]}}), HOOKS).text)
-    assert merged["hooks"]["PreToolUse"] == [similar, GATE]
+def test_a_kit_hook_the_user_edited_is_still_the_kit_hook() -> None:
+    # A kit hook is recognised by the script it runs, not by its exact JSON. Otherwise raising a
+    # timeout would make every later install append a second copy of the hook.
+    edited_gate = dict(GATE, matcher="Bash|Edit")
+    edited_stop = {"hooks": [dict(STOP["hooks"][0], timeout=1800)]}
+    existing = {"hooks": {"PreToolUse": [edited_gate], "Stop": [edited_stop]}}
+    assert merge_hooks(json.dumps(existing), HOOKS).changed is False
+
+
+def test_a_group_that_runs_another_script_is_not_the_kit_hook() -> None:
+    other = {"matcher": "Bash", "hooks": [{"type": "command", "command": "python3 -I .claude/hooks/mine.py"}]}
+    merged = json.loads(merge_hooks(json.dumps({"hooks": {"PreToolUse": [other]}}), HOOKS).text)
+    assert merged["hooks"]["PreToolUse"] == [other, GATE]
+
+
+def test_the_script_is_recognised_in_exec_form_and_behind_the_project_variable() -> None:
+    exec_form = {
+        "hooks": [
+            {"type": "command", "command": "python3", "args": ["-I", "${CLAUDE_PROJECT_DIR}/.claude/hooks/stop.py"]}
+        ]
+    }
+    change = merge_hooks(json.dumps({"hooks": {"Stop": [exec_form]}}), HOOKS)
+    assert json.loads(change.text)["hooks"]["Stop"] == [exec_form]  # only the gate was added
 
 
 def test_an_empty_fragment_changes_nothing() -> None:
@@ -188,3 +207,18 @@ def test_removal_keeps_lists_that_were_already_empty() -> None:
 def test_removal_takes_out_every_copy_of_a_kit_group() -> None:
     existing = {"hooks": {"PreToolUse": [GATE, USER_GROUP, GATE]}}
     assert json.loads(remove_hooks(json.dumps(existing), HOOKS).text) == {"hooks": {"PreToolUse": [USER_GROUP]}}
+
+
+def test_removal_also_takes_out_a_kit_hook_the_user_edited() -> None:
+    # Left behind, the edited hook would point at a script that no longer exists, and a hook
+    # command that cannot start blocks the session.
+    edited_stop = {"hooks": [dict(STOP["hooks"][0], timeout=1800)]}
+    existing = {"model": "opus", "hooks": {"PreToolUse": [dict(GATE, matcher="Bash|Edit")], "Stop": [edited_stop]}}
+    assert json.loads(remove_hooks(json.dumps(existing), HOOKS).text) == {"model": "opus"}
+
+
+def test_removal_keeps_the_users_own_hook_in_a_group_shared_with_a_kit_hook() -> None:
+    mine = {"type": "command", "command": "./scripts/notify.sh"}
+    shared = {"hooks": [STOP["hooks"][0], mine]}
+    change = remove_hooks(json.dumps({"hooks": {"Stop": [shared]}}), HOOKS)
+    assert json.loads(change.text) == {"hooks": {"Stop": [{"hooks": [mine]}]}}

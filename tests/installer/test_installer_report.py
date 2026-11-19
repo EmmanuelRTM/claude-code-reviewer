@@ -87,8 +87,8 @@ def test_next_steps_carry_the_required_facts() -> None:
         "never commit",
         "https://github.com/apps/claude",
         "@claude",
-        "dismiss stale approvals",
-        "conversation resolution",
+        "code owners",
+        "`risk-approval` status check",
         "owners",
         "python3 -I .claude/reviewkit/rk.py doctor",
     ]:
