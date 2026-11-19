@@ -1,0 +1,55 @@
+# Review metrics: a monthly report that reviews the reviewers.
+#
+# What it does
+#   Reads the pull requests merged in the last days (30 by default) and posts
+#   an issue labelled review-metrics with: revert rate, review rounds to pass,
+#   what people said about the review findings, which reliability checklist
+#   items produced findings, how many commits carry a Verified-By trailer, and
+#   human approvals per pull request. Checklist items that produced no findings
+#   are listed as candidates to prune.
+#
+# Why these triggers are safe
+#   "schedule" runs this workflow file, and the code it checks out, from the
+#   default branch. "workflow_dispatch" can only be started by someone with
+#   write access to the repository. The job only reads pull request data
+#   through the API and writes one issue; it never checks out or executes pull
+#   request code. The "days" input reaches the script through an environment
+#   variable, never as text inside the script, and the script accepts only a
+#   whole number for it.
+
+name: Review metrics
+
+on:
+  schedule:
+    - cron: "17 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Number of days to look back
+        required: false
+        type: string
+        default: "30"
+
+permissions: {}
+
+jobs:
+  report:
+    name: Build and post the report
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Build and post the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DAYS: ${{ inputs.days || '30' }}
+        run: python3 -I .claude/reviewkit/rk.py metrics report --days "$DAYS" --post-issue

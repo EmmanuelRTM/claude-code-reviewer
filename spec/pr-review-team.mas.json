@@ -1,0 +1,200 @@
+{
+  "name": "pr-review-team",
+  "version": "1",
+  "task": {
+    "shape": "short_verifiable",
+    "description": "Find defects in one pull request and return only the findings that survive an independent attempt to disprove them. Each finding is a short claim that can be checked against the code: a file, a line, a verbatim quote and a failure scenario.",
+    "closure_criteria": [
+      "validation: every published finding quotes code that exists at its file and line (re-checked by reviewkit.review.findings before anything is posted)",
+      "controls: on merged, stable pull requests in the eval set the review publishes no Important finding",
+      "delivery: the result validates against output-schema.json, every planned lens is listed as completed, and every candidate is either confirmed or rejected with a reason",
+      "repeat: recall on the eval set's known bugs holds across 3 runs, compared with the single-finder baseline at the same level of effort"
+    ],
+    "parallelism": "structural"
+  },
+  "platform": {
+    "runtime": "claude-code-subagents",
+    "max_concurrency": 6,
+    "nesting_depth": 1,
+    "shared_resources": false
+  },
+  "baseline": {
+    "metric": "recall of known bugs on the review eval fixture (docs/EVALS.md), single finder plus verifier (review.level quick)",
+    "runs": 3,
+    "single_agent_score": 1.0,
+    "max_score": 1.0
+  },
+  "planning": {
+    "fixed_spec": true
+  },
+  "skills": [
+    {
+      "name": "pr-review",
+      "description": "Lead protocol: load the prepared context, dispatch one finder per lens, send every candidate to the verifier, assemble the result",
+      "source": "project"
+    },
+    {
+      "name": "bug-finding",
+      "description": "Finder playbook: lenses, method, evidence rules and candidate format",
+      "source": "project"
+    },
+    {
+      "name": "finding-verification",
+      "description": "Judge rubric: premise-by-premise checks, verdict grounds, severity calibration, status of earlier findings",
+      "source": "project"
+    }
+  ],
+  "agents": [
+    {
+      "id": "review-lead",
+      "role": "orchestrator",
+      "count": 1,
+      "model": "claude-opus-5-5",
+      "model_family": "claude",
+      "effort": "medium",
+      "context": "isolated",
+      "stateful": false,
+      "memoryless": true,
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Agent"
+      ],
+      "skills": [
+        "pr-review"
+      ],
+      "instructions": "Dispatch the planned lenses, pass candidates verbatim to the verifier, assemble the confirmed findings without changing location, severity or meaning."
+    },
+    {
+      "id": "bug-finder",
+      "role": "worker",
+      "count": 2,
+      "model": "claude-sonnet-5-5",
+      "model_family": "claude",
+      "effort": "medium",
+      "context": "isolated",
+      "stateful": false,
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "skills": [
+        "bug-finding"
+      ],
+      "instructions": "Find defects through one assigned lens (correctness, contracts, cross-file); return candidates with a verbatim quote and a failure scenario."
+    },
+    {
+      "id": "bug-finder-tests",
+      "role": "worker",
+      "count": 1,
+      "model": "claude-haiku-5-5",
+      "model_family": "claude",
+      "effort": "medium",
+      "context": "isolated",
+      "stateful": false,
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "skills": [
+        "bug-finding"
+      ],
+      "instructions": "Same agent definition as bug-finder, run on a second model for the tests-evidence lens so the finders' blind spots differ."
+    },
+    {
+      "id": "finding-verifier",
+      "role": "verifier",
+      "count": 1,
+      "model": "claude-opus-5-5",
+      "model_family": "claude",
+      "effort": "high",
+      "context": "isolated",
+      "stateful": false,
+      "memoryless": true,
+      "tools": [
+        "Read",
+        "Grep",
+        "Glob"
+      ],
+      "skills": [
+        "finding-verification"
+      ],
+      "instructions": "Try to disprove each candidate against the code; give every candidate a verdict with a reason."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "find",
+      "owner": "bug-finder",
+      "start_condition": "review-context.json exists with the diff, the head tree, the trusted rules and the lens list",
+      "done_criterion": "one JSON object per lens with status and a candidates list, each candidate carrying path, line and a verbatim quote",
+      "monitor": "review-lead"
+    },
+    {
+      "id": "find-tests",
+      "owner": "bug-finder-tests",
+      "start_condition": "review-context.json exists with the diff, the head tree, the trusted rules and the lens list",
+      "done_criterion": "one JSON object for the tests-evidence lens with status and a candidates list, each candidate carrying path, line and a verbatim quote",
+      "monitor": "review-lead"
+    },
+    {
+      "id": "verify",
+      "owner": "finding-verifier",
+      "start_condition": "every planned finder returned JSON or was recorded as not completed",
+      "done_criterion": "a verdicts list with one entry per candidate index and a prior list with one entry per earlier finding id",
+      "monitor": "review-lead"
+    },
+    {
+      "id": "assemble",
+      "owner": "review-lead",
+      "start_condition": "every candidate has a verdict",
+      "done_criterion": "structured output that validates against output-schema.json with coverage.lenses_completed filled in",
+      "monitor": "harness"
+    }
+  ],
+  "communication": {
+    "mode": "none",
+    "share_full_solutions": false,
+    "debate": false,
+    "ranking": "none"
+  },
+  "context_policy": {
+    "retained_tool_responses": 12,
+    "prune_unused_tools": true,
+    "stale_output": "drop"
+  },
+  "selection": {
+    "strategy": "evidence_grounded",
+    "revision_peers": 0,
+    "dedup": true
+  },
+  "merge": {
+    "input": "raw_evidence",
+    "agent": "review-lead"
+  },
+  "verification": {
+    "judge_agents": [
+      "finding-verifier"
+    ],
+    "evaluator_protected": true
+  },
+  "state": {
+    "location": "harness"
+  },
+  "monitoring": {
+    "repeated_runs": 3,
+    "track_cost": true,
+    "heartbeat": false,
+    "commitment_log": false,
+    "progress_check": "self_report"
+  },
+  "human_in_the_loop": true,
+  "budget": {
+    "max_tokens": 1500000,
+    "expected_error_correlation": 0.5,
+    "expected_tokens_per_instance": 150000
+  }
+}

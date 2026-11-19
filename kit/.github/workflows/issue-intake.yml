@@ -1,0 +1,49 @@
+# Issue intake: label new task issues and ask for missing acceptance criteria.
+#
+# What it does
+#   Reads the answers of the "Task" issue form (.github/ISSUE_TEMPLATE/task.yml)
+#   from the issue body. It sets the risk:* label that matches the chosen risk
+#   tier, adds needs-acceptance-criteria while the issue has no checkable
+#   acceptance criteria, removes that label once they exist, and posts one
+#   fixed reminder comment the first time they are missing.
+#
+# Why this trigger is safe
+#   The "issues" trigger runs this workflow file, and the code it checks out,
+#   from the default branch. The issue body is written by whoever opened the
+#   issue, so it is treated as data: the script reads it from the event file,
+#   never evaluates it, and never copies any of it into a label, a comment or
+#   an output. No expression from the event is ever placed inside a script.
+
+name: Issue intake
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions: {}
+
+# One run at a time per issue, in order, so two quick edits cannot both decide
+# that the reminder has not been posted yet.
+concurrency:
+  group: issue-intake-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  intake:
+    name: Label the issue from its form answers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run the intake
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .claude/reviewkit/rk.py issue intake

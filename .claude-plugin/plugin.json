@@ -1,0 +1,18 @@
+{
+  "name": "reviewkit",
+  "displayName": "Review Kit",
+  "version": "0.1.0",
+  "description": "Installs a verification-first code review setup into the current repository: Claude Code hooks, skills and subagents plus GitHub Actions for pull request review, risk-tiered approval and issue intake. Runs on a Claude subscription.",
+  "author": {
+    "name": "EmmanuelRTM",
+    "url": "https://github.com/EmmanuelRTM"
+  },
+  "repository": "https://github.com/EmmanuelRTM/claude-code-reviewer",
+  "keywords": [
+    "code-review",
+    "verification",
+    "github-actions",
+    "hooks",
+    "subagents"
+  ]
+}

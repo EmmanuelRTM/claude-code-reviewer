@@ -1,0 +1,92 @@
+# Risk approval: the tiered human-approval gate.
+#
+# What it does
+#   Works out the risk tier of a pull request from the paths it touches
+#   (.claude/reviewkit.json: risk.high_paths, risk.low_paths), keeps the
+#   matching risk:* label on it, counts the people who approved the exact head
+#   commit, and records the result as the commit status "risk-approval"
+#   (risk.status_context). Require that status in branch protection to make
+#   the gate binding. Agents and bots never count as approvers.
+#
+# Why these triggers are safe
+#   pull_request_target and issue_comment both run this workflow file, and the
+#   code it checks out, from the base branch (issue_comment: the default
+#   branch). The pull request under review therefore cannot edit this check.
+#   The job never checks out or executes pull request code: the checkout below
+#   has no "ref", and the script reads pull request metadata through the API
+#   only. No expression from the event is ever placed inside a script.
+#
+# Why pull_request_review is not a trigger
+#   That event runs the workflow from the pull request's merge ref, so the
+#   pull request could rewrite its own gate. It is deliberately left out.
+#   An approval given in the GitHub interface is therefore picked up on the
+#   next push, on a label change, or when someone comments "/recheck" on the
+#   pull request. The same holds for a withdrawal (requesting changes or
+#   dismissing a review): until the next evaluation the status keeps its
+#   earlier value, so comment /recheck to have a withdrawal counted at once.
+#
+# How people approve
+#   - Approve the pull request in the GitHub interface, then comment /recheck.
+#   - Or comment "/approve <sha>" where <sha> is the full head commit (all 40
+#     characters; the run summary shows it ready to copy). A shorter prefix is
+#     refused, because a commit with a matching prefix is cheap to forge.
+#     The command must be the first line
+#     of a new comment; an edited comment does not count. This is how the
+#     author of a pull request, who cannot approve it in the interface,
+#     vouches for commits an agent pushed.
+#   An approval covers one commit. A new push needs new approvals.
+
+name: Risk approval
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+# One evaluation per pull request; a newer event replaces a running one, which
+# is safe because every run recomputes everything from the API. GitHub applies
+# concurrency before the job's "if", so a comment that is not a command must
+# not share the pull request's group or it would cancel a running evaluation
+# and then do nothing. Such runs get a group of their own.
+concurrency:
+  group: >-
+    ${{
+    (github.event_name == 'pull_request_target'
+    && format('risk-approval-{0}', github.event.pull_request.number))
+    || (github.event_name == 'issue_comment'
+    && github.event.issue.pull_request
+    && (startsWith(github.event.comment.body, '/approve') || startsWith(github.event.comment.body, '/recheck'))
+    && format('risk-approval-{0}', github.event.issue.number))
+    || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    name: Evaluate risk tier and approvals
+    if: >-
+      github.event_name == 'pull_request_target'
+      || (github.event_name == 'issue_comment'
+      && github.event.issue.pull_request
+      && (startsWith(github.event.comment.body, '/approve') || startsWith(github.event.comment.body, '/recheck')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - name: Check out the base branch (never the pull request)
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Evaluate risk tier and approvals
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .claude/reviewkit/rk.py risk evaluate

@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git *)",
+            "command": "python3",
+            "args": ["-I", "${CLAUDE_PROJECT_DIR}/.claude/hooks/verify_commit_gate.py"],
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["-I", "${CLAUDE_PROJECT_DIR}/.claude/hooks/run_checks_on_stop.py"],
+            "timeout": 660,
+            "statusMessage": "Running project checks"
+          }
+        ]
+      }
+    ]
+  }
+}

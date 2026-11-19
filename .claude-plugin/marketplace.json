@@ -1,0 +1,15 @@
+{
+  "name": "reviewkit",
+  "owner": {
+    "name": "EmmanuelRTM"
+  },
+  "description": "The verification-first review kit, installable into any repository from inside Claude Code.",
+  "plugins": [
+    {
+      "name": "reviewkit",
+      "source": "./",
+      "description": "Run /reviewkit:setup in a repository to install or upgrade the review kit there.",
+      "category": "code-review"
+    }
+  ]
+}

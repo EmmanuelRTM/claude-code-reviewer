@@ -1,0 +1,56 @@
+# Task issue form. The issue-intake workflow reads the answers back out of the
+# issue body by field label, so "Acceptance criteria" and "Risk tier" must keep
+# exactly these labels (see .claude/reviewkit/lib/reviewkit/issues.py).
+name: Task
+description: A unit of work with checkable acceptance criteria and a risk tier.
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What should change, and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements that say when this is done. One checkbox per statement.
+      placeholder: |
+        - [ ] The orders page has an Export button that downloads a CSV file
+        - [ ] The file has one row per order and a header row
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk tier
+      description: |
+        How much review the change needs.
+        Low: docs, copy, internal-only or flagged additive changes.
+        Medium: ordinary feature and bug-fix work.
+        High: auth, data access, billing, migrations, CI workflows, review rules.
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: How the change will be shown working end-to-end.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links, constraints and anything else worth knowing.
+    validations:
+      required: false

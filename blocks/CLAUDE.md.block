@@ -1,0 +1,35 @@
+<!-- reviewkit:begin -->
+## Verification contract
+
+This repository uses a verification-first workflow. These rules apply to every session, whoever runs it and however it is orchestrated.
+
+### Project checks
+
+- Test: {{TEST_COMMAND}}
+- Lint: {{LINT_COMMAND}}
+- Build: {{BUILD_COMMAND}}
+
+### Definition of done
+
+- The project checks pass locally. A Stop hook runs them and keeps the session working until they do.
+- The `verify` skill ran after the last edit and showed the change working end-to-end, with evidence: the commands run, their output, screenshots where a UI is involved.
+- `/code-review` ran on the final diff and every finding is fixed or explained.
+- Every commit message ends with a trailer: `Verified-By: verify, code-review`, or `Verified-By: none (<reason>)` when verification does not apply.
+
+### Testing rules
+
+- Never skip, weaken, delete, add sleeps to, or retry a failing or flaky test until it passes. Find the root cause. If you cannot, delete the test and write down why in the pull request.
+- A run that executed zero tests is not a pass.
+- Do not call a failure pre-existing unless you saw it fail before your first edit, or on the base branch.
+- Prefer end-to-end tests for user flows, property tests for invariants, and differential tests when replacing an existing implementation.
+- A bug fix comes with a regression test that fails without the fix.
+
+### Escalation
+
+- If a check still fails after three fix rounds, stop and ask a human. Say what failed, what you tried and what you recommend.
+
+### Review rules
+
+- Review-only rules live in `REVIEW.md`. Diff-triggered checks live in `docs/reliability-checklist.md`.
+- Changes to those files, to `.claude/` or to `.github/` need a human code owner. A change never edits the checks that judge it.
+<!-- reviewkit:end -->

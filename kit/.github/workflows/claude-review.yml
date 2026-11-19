@@ -1,0 +1,136 @@
+# Claude PR Review
+#
+# Reviews every pull request the way the managed Code Review service does:
+# independent finders, a separate verification step, findings posted inline as
+# Important / Nit / Pre-existing with a summary and a neutral check run.
+# It runs on a Claude subscription token; no API key is involved.
+#
+# Why these triggers are safe:
+#   `pull_request_target`, `issue_comment` and `workflow_dispatch` all run THIS
+#   file and the checked-out code from the base or default branch, so a pull
+#   request cannot edit the workflow, the review rules or the scripts that
+#   judge it, and cannot read the subscription token by editing a workflow.
+#   The pull request's own files are never checked out into the workspace and
+#   never executed: `review prepare` exports them as plain data for a session
+#   that has only read tools.
+#
+# Two jobs, least privilege each:
+#   review  - talks to Claude; its GitHub token can only read.
+#   publish - never talks to Claude; validates the result and writes to the PR.
+#
+# Comment commands (from people with write access, at the start of a PR comment):
+#   @claude review            one full review now (also works on drafts and forks)
+#   @claude review always     review every later push to this pull request
+#   @claude review stop       stop push-triggered reviews for this pull request
+name: Claude PR Review
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, ready_for_review, reopened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number to review
+        required: true
+        type: string
+      dry_run:
+        description: Print the review in the run summary instead of posting it
+        type: boolean
+        default: true
+
+permissions: {}
+
+# Only the latest commit's review matters: a newer event for the same pull
+# request cancels the run in progress. Comments that are not a review command
+# get a unique group, so ordinary conversation never cancels a review.
+concurrency:
+  group: >-
+    claude-review-${{
+    github.event.pull_request.number
+    || inputs.pr_number
+    || (github.event.issue.pull_request && startsWith(github.event.comment.body, '@claude review') && github.event.issue.number)
+    || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review
+    if: >-
+      github.event_name != 'issue_comment'
+      || (github.event.issue.pull_request && startsWith(github.event.comment.body, '@claude review'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Optional hardening: keep CLAUDE_CODE_OAUTH_TOKEN as an environment secret
+    # restricted to the default branch, then uncomment the next line.
+    # environment: claude-review
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      plan: ${{ steps.prepare.outputs.plan }}
+      result: ${{ steps.claude.outputs.structured_output }}
+      outcome: ${{ steps.claude.outcome }}
+    steps:
+      # No `ref`: this is the base branch (or the default branch for comments),
+      # never the pull request. Rules, skills, agents and scripts come from here.
+      - name: Check out the trusted branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 1
+
+      # Deterministic: decides whether to review, in which mode and with which
+      # lenses, then exports the pull request as sanitized data.
+      - name: Decide and prepare
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_CLAUDE_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: python3 -I .claude/reviewkit/rk.py review prepare
+
+      # The session gets read tools only, no hooks, no shell, no network tools,
+      # and cannot read outside the two trees. Its only output is JSON that
+      # matches a schema; a failure here is reported, not hidden.
+      - name: Review with Claude
+        id: claude
+        if: steps.prepare.outputs.run == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@f431adaf77e0fecf918431e75a2b5b45b85af002 # v1.0.283
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          allowed_bots: ${{ steps.prepare.outputs.allowed_bots }}
+          prompt: ${{ steps.prepare.outputs.prompt }}
+          claude_args: ${{ steps.prepare.outputs.claude_args }}
+
+  publish:
+    name: Publish
+    needs: review
+    if: ${{ !cancelled() && needs.review.result == 'success' && needs.review.outputs.plan != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      checks: write
+    steps:
+      - name: Check out the trusted branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 1
+
+      # Re-validates every finding against the code before anything is posted.
+      # Values from the review job arrive through the environment, never
+      # through shell interpolation.
+      - name: Publish the review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ needs.review.outputs.plan }}
+          REVIEW_RESULT: ${{ needs.review.outputs.result }}
+          REVIEW_OUTCOME: ${{ needs.review.outputs.outcome }}
+        run: python3 -I .claude/reviewkit/rk.py review publish

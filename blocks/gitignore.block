@@ -1,0 +1,4 @@
+# reviewkit:begin
+.claude/state/
+.claude/settings.local.json
+# reviewkit:end

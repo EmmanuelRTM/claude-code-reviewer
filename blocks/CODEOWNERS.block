@@ -1,0 +1,4 @@
+# reviewkit:begin
+# The checks that judge a change are owned by people, never by the change itself.
+{{CODEOWNERS_RULES}}
+# reviewkit:end
