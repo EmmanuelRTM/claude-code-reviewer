@@ -26,7 +26,17 @@ from .review import evals
 from .review.context import Workspace, build_context, fetch_commits, has_commit, read_blob
 from .review.diffmap import diff_stats, parse_unified_diff, patch_id, unified_diff
 from .review.findings import normalize
-from .review.plan import Plan, finalize, parse_trigger, plan_from_json, plan_lenses, plan_to_json, precheck, pull_facts
+from .review.plan import (
+    Plan,
+    finalize,
+    level_for,
+    parse_trigger,
+    plan_from_json,
+    plan_lenses,
+    plan_to_json,
+    precheck,
+    pull_facts,
+)
 from .review.publish import publish
 from .review.schema import schema_json
 from .review.session import claude_args
@@ -221,10 +231,10 @@ def local_context(repo_dir: Path, base: Optional[str] = None) -> int:
         base_ref=base_ref,
         mode="full",
         round=1,
-        level=cfg.review.level,
+        level=level_for(cfg, high_risk),
         publish="dry_run",
         manual=True,
-        lenses=plan_lenses(cfg.review.level, stats["additions"] + stats["deletions"], high_risk),
+        lenses=plan_lenses(level_for(cfg, high_risk), stats["additions"] + stats["deletions"], high_risk),
     )
     workspace = Workspace(state_dir(repo_dir) / "review")
     build_context(

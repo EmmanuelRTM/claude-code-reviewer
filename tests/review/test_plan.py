@@ -207,8 +207,8 @@ def test_escalated_pull_requests_pause_until_a_person_acts():
 
 def test_first_review_is_a_full_round_one():
     result = final(trigger=OPENED)
-    assert (result.run, result.mode, result.round, result.level) == (True, "full", 1, "standard")
-    assert result.lenses == ("correctness", "contracts", "tests-evidence")
+    assert (result.run, result.mode, result.round, result.level) == (True, "full", 1, "quick")
+    assert result.lenses == ("all",)
     assert result.publish == "advisory" and result.merge_base == "m" * 40 and result.patch == "p1"
 
 
@@ -271,6 +271,24 @@ def test_continue_policy_reviews_in_escalation_mode():
     state = ReviewState(round=4, head="old", patch="p0", escalated=True)
     result = final(state=state, config=cfg(after_escalation="continue"))
     assert result.mode == "escalation"
+
+
+def test_risk_decides_the_depth_of_a_review():
+    # Ordinary changes get the cheap single finder; a high-risk path gets the multi-lens team
+    # with the security lens, whatever the size of the change.
+    ordinary = final(trigger=OPENED)
+    risky = final(trigger=OPENED, high_risk=True)
+    assert (ordinary.level, ordinary.lenses) == ("quick", ("all",))
+    assert risky.level == "standard"
+    assert risky.lenses == ("correctness", "contracts", "tests-evidence", "security")
+
+
+def test_both_levels_can_be_set_independently():
+    config = cfg(level="standard", high_risk_level="deep")
+    assert final(config=config).lenses == ("correctness", "contracts", "tests-evidence")
+    assert final(config=config, high_risk=True).lenses == planning.ALL_LENSES
+    same = cfg(level="quick", high_risk_level="quick")
+    assert final(config=same, high_risk=True).lenses == ("all",)
 
 
 @pytest.mark.parametrize(

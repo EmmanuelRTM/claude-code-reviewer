@@ -34,7 +34,8 @@ def test_defaults_when_no_file(tmp_path: Path) -> None:
     assert cfg.gate.mode == "observe"
     assert cfg.gate.max_blocks == 2
     assert cfg.checks.max_blocks == 3
-    assert cfg.review.level == "standard"
+    assert cfg.review.level == "quick"  # ordinary changes: one finder plus the verifier
+    assert cfg.review.high_risk_level == "standard"  # high-risk paths: the multi-lens team
     assert cfg.review.max_rounds == 3
     assert cfg.review.publish == "advisory"
     assert cfg.review.trigger == "every_push"
@@ -82,6 +83,7 @@ def test_unknown_keys_are_warnings_not_errors(tmp_path: Path) -> None:
     [
         ({"gate": {"mode": "strict"}}, "gate.mode"),
         ({"review": {"level": "extreme"}}, "review.level"),
+        ({"review": {"high_risk_level": "extreme"}}, "review.high_risk_level"),
         ({"review": {"publish": "loud"}}, "review.publish"),
         ({"review": {"trigger": "sometimes"}}, "review.trigger"),
         ({"review": {"max_rounds": 0}}, "review.max_rounds"),

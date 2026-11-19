@@ -148,6 +148,11 @@ def plan_lenses(level: str, changed_lines: int, high_risk: bool) -> tuple:
     return BASE_LENSES + (("security",) if high_risk else ())
 
 
+def level_for(cfg: Config, high_risk: bool) -> str:
+    """The level a change is reviewed at. Risk decides it: a high-risk path gets the deeper level."""
+    return cfg.review.high_risk_level if high_risk else cfg.review.level
+
+
 def lens_assignments(cfg: Config, lenses: Sequence[str]) -> list:
     """`[{"id", "model"}]` per lens. Lenses differ in model as well as in focus (independent generation)."""
     models = cfg.review.models
@@ -313,8 +318,8 @@ def finalize(
         base_ref=pull.base_ref,
         mode=mode,
         round=(state.round if state else 0) + 1,
-        level=review.level,
-        lenses=plan_lenses(review.level, changed_lines, high_risk),
+        level=level_for(cfg, high_risk),
+        lenses=plan_lenses(level_for(cfg, high_risk), changed_lines, high_risk),
         publish="dry_run" if trigger.kind == "dispatch" and trigger.dry_run else review.publish,
         manual=trigger.manual,
         last_reviewed_sha=state.head if state and mode != "full" else "",

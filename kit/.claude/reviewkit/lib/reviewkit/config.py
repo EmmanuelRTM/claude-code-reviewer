@@ -77,7 +77,8 @@ class ReviewConfig:
     check_name: str = "Claude PR Review"
     trigger: str = "every_push"
     publish: str = "advisory"
-    level: str = "standard"
+    level: str = "quick"
+    high_risk_level: str = "standard"
     max_rounds: int = 3
     after_escalation: str = "pause"
     models: ReviewModels = field(default_factory=ReviewModels)
@@ -227,7 +228,8 @@ def validate(cfg: Config) -> list:
         errors,
     )
     review = cfg.review
-    _require(review.level in REVIEW_LEVELS, f"review.level: one of {', '.join(REVIEW_LEVELS)}", errors)
+    for name in ("level", "high_risk_level"):
+        _require(getattr(review, name) in REVIEW_LEVELS, f"review.{name}: one of {', '.join(REVIEW_LEVELS)}", errors)
     _require(review.trigger in REVIEW_TRIGGERS, f"review.trigger: one of {', '.join(REVIEW_TRIGGERS)}", errors)
     _require(review.publish in PUBLISH_MODES, f"review.publish: one of {', '.join(PUBLISH_MODES)}", errors)
     _require(

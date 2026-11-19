@@ -106,7 +106,7 @@ def test_config_file_is_the_base_and_set_goes_on_top(kit, repo, tmp_path: Path) 
     assert config["commands"]["lint"] == "from file"  # --config beats detection
     assert config["commands"]["build"] == "go build ./..."  # detection beats the default
     assert config["gate"]["mode"] == "off"
-    assert config["review"]["level"] == "standard"  # default
+    assert config["review"]["level"] == "quick"  # default
 
 
 def test_set_updates_an_existing_configuration(kit, repo) -> None:
