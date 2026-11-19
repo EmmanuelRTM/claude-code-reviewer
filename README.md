@@ -80,7 +80,19 @@ CI reviews spend the usage of whoever created the token. [docs/OPERATIONS.md](do
 
 This is version 0.1.0. What has been checked, and what has not:
 
-VERIFICATION_STATUS
+**Checked**
+
+- **Unit and integration tests.** About 1,700 tests cover the hooks, the review planner and publisher against a fake GitHub API, the approval gate, issue intake, metrics, the installer and the health check. They pass on Python 3.9, 3.11 and 3.13.
+- **Live reviews.** Twenty real review sessions ran against a fixture repository that the installer had set up, with the same session flags as CI. Every session returned a valid result. All planted bugs were found, confirmed and published in every run, and the clean control change never got an Important finding. [docs/EVALS.md](docs/EVALS.md) has the numbers.
+- **Install, upgrade and health check** on that fixture repository, with the real installer.
+- **Claude Code's own validators** accept the plugin manifest, the marketplace file, the skills and the subagents.
+
+**Not checked**
+
+- **The workflows have never run on GitHub.** They are covered by structural tests and by running the same commands locally, but the first run in your repository is the real test. Start with a dry run from the Actions tab.
+- **`actionlint` was not run** on the workflow files.
+- **The reviewer's value on real code is unmeasured.** The fixture's bugs are easy. Whether the larger review team is worth its extra usage on your code is a question only your own eval cases can answer.
+- **The `deep` level** has unit tests only.
 
 ## Documentation
 

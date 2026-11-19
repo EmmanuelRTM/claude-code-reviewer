@@ -86,7 +86,7 @@ What it does not show:
 
 - **It says little about your code.** Three planted bugs in a tiny, clean codebase are easy. Both levels hit the ceiling, so the fixture cannot tell them apart. Subtle bugs that span files, in a large codebase, are where independent finders are expected to help, and that was not measured.
 - **Nine sessions per level is a small sample.** It is enough to show the pipeline is stable, not to estimate a miss rate.
-- **`deep` and the `security` lens were not part of this comparison.**
+- **`deep` was not run.** The `security` lens ran once, outside the comparison: a change under `shop/auth/` whose `verify()` never checks a token's expiry was reviewed with four finders. All four reported the missing check, the verifier merged them into one Important finding, and the review cost $0.57.
 
 This result is why the kit ships with `review.level: quick` for ordinary changes and keeps the multi-lens team for changes that touch high-risk paths (`review.high_risk_level: standard`). Raise the level for ordinary changes only if your own cases show `quick` missing bugs that `standard` catches.
 
